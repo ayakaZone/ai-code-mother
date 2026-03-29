@@ -2,21 +2,21 @@ package com.neko.nekoaicodemother.common;
 
 import lombok.Data;
 
+/**
+ * 分页请求封装类
+ */
 @Data
 public class PageRequest {
-    /**
-     * 分页请求封装类
-     */
 
     /**
      * 当前页
      */
-    private int current = 1;
+    private long pageNum = 1;
 
     /**
      * 页大小
      */
-    private int pageSize = 10;
+    private long pageSize = 10;
 
     /**
      * 排序字段
