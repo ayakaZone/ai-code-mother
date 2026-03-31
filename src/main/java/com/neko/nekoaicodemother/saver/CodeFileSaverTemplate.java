@@ -1,8 +1,8 @@
 package com.neko.nekoaicodemother.saver;
 
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import com.neko.nekoaicodemother.constant.appConstant;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
@@ -17,18 +17,18 @@ import java.nio.charset.StandardCharsets;
  */
 public abstract class CodeFileSaverTemplate<T> {
 
-    protected static final String FILE_SAVE_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_output";
+    protected static final String FILE_SAVE_ROOT_DIR = appConstant.CODE_OUTPUT_ROOT_DIR;
 
     /**
      * 保存代码模板方式
      * @param result 生成的代码结果
      * @return 文件
      */
-    public final File saveCode(T result) {
+    public final File saveCode(T result, Long appId) {
         // 校验生成代码结果
         validateInput(result);
         // 构建唯一目录
-        String baseDirPath = builderUnionDir();
+        String baseDirPath = builderUnionDir(appId);
         // 保存代码
         saveFiles(result, baseDirPath);
         // 返回目录文件对象
@@ -51,11 +51,11 @@ public abstract class CodeFileSaverTemplate<T> {
      *
      * @return 唯一目录
      */
-    protected final String builderUnionDir() {
+    protected final String builderUnionDir(Long appId) {
         // 获取生成代码类型
         String codeType = getCodeType().getValue();
         // 构建唯一目录名称
-        String unionDirName = StrUtil.format("{}_{}", codeType, IdUtil.getSnowflakeNextIdStr());
+        String unionDirName = StrUtil.format("{}_{}", codeType, appId);
         String dirPath = FILE_SAVE_ROOT_DIR + File.separator + unionDirName;
         // 创建目录
         FileUtil.mkdir(dirPath);

@@ -1,4 +1,5 @@
-package com.neko.nekoaicodemother.model.dto;
+package com.neko.nekoaicodemother.model.dto.user;
+
 
 import lombok.Data;
 
@@ -6,10 +7,10 @@ import java.io.Serial;
 import java.io.Serializable;
 
 @Data
-public class UserRegisterRequest implements Serializable {
+public class UserLoginRequest implements Serializable {
 
     /**
-     * 用户注册请求类
+     * 用户登录请求类
      */
 
     @Serial
@@ -25,8 +26,4 @@ public class UserRegisterRequest implements Serializable {
      */
     private String userPassword;
 
-    /**
-     * 确认密码
-     */
-    private String checkPassword;
 }

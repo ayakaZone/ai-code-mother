@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.model.vo;
+package com.neko.nekoaicodemother.model.vo.user;
 
 import lombok.Data;
 
@@ -7,10 +7,10 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
-public class LoginUserVO implements Serializable {
+public class UserVO implements Serializable {
 
     /**
-     * 脱敏当前用户类
+     * 脱敏用户类
      */
 
     @Serial
@@ -50,10 +50,5 @@ public class LoginUserVO implements Serializable {
      * 创建时间
      */
     private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    private LocalDateTime updateTime;
 
 }

@@ -10,8 +10,6 @@ import reactor.core.publisher.Flux;
 import java.io.File;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 @SpringBootTest
 class AiCodeGeneratorFacadeTest {
 
@@ -20,13 +18,13 @@ class AiCodeGeneratorFacadeTest {
 
     @Test
     void generatorAndSave() {
-        File file = aiCodeGeneratorFacade.GeneratorAndSave("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.MULTI_FILE);
+        File file = aiCodeGeneratorFacade.GeneratorAndSave("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.MULTI_FILE, 1L);
         Assertions.assertNotNull(file);
     }
 
     @Test
     void generatorAndSaveStream() {
-        Flux<String> codeStream = aiCodeGeneratorFacade.GeneratorAndSaveStream("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.HTML);
+        Flux<String> codeStream = aiCodeGeneratorFacade.GeneratorAndSaveStream("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.HTML, 1L);
         List<String> result = codeStream.collectList().block();
         Assertions.assertNotNull(result);
         String completeContent = String.join("", result);

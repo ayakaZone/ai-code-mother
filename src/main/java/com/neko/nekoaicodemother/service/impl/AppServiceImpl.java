@@ -1,0 +1,216 @@
+package com.neko.nekoaicodemother.service.impl;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.io.IORuntimeException;
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.neko.nekoaicodemother.constant.appConstant;
+import com.neko.nekoaicodemother.core.AiCodeGeneratorFacade;
+import com.neko.nekoaicodemother.exception.BusinessException;
+import com.neko.nekoaicodemother.exception.ErrorCode;
+import com.neko.nekoaicodemother.exception.ThrowUtils;
+import com.neko.nekoaicodemother.mapper.AppMapper;
+import com.neko.nekoaicodemother.model.dto.app.AppQueryRequest;
+import com.neko.nekoaicodemother.model.entity.App;
+import com.neko.nekoaicodemother.model.entity.User;
+import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
+import com.neko.nekoaicodemother.model.vo.app.AppVO;
+import com.neko.nekoaicodemother.model.vo.user.UserVO;
+import com.neko.nekoaicodemother.service.AppService;
+import com.neko.nekoaicodemother.service.UserService;
+import jakarta.annotation.Resource;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+
+import java.io.File;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * 应用 服务层实现。
+ *
+ * @author mosoNeko
+ */
+@Service
+public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
+
+    @Resource
+    private UserService userService;
+
+    @Resource
+    private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    /**
+     * 部署应用
+     * @param appId 应用id
+     * @param loginUser 当前登录用户
+     * @return 访问地址
+     */
+    @Override
+    public String deployApp(Long appId, User loginUser) {
+        // 参数校验
+        ThrowUtils.throwIf(appId <= 0, ErrorCode.PARAMS_ERROR, "应用Id不能为空");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        // 应用是否存在
+        App app = getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        // 用户部署权限校验（仅本人）
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限部署该应用");
+        }
+        // 检查应用是否已有 deployKey 规定：6位随机大小写字母和数字符号组成
+        String deployKey = app.getDeployKey();
+        if (StrUtil.isBlank(deployKey)) {
+            // 没有就生成
+            deployKey = RandomUtil.randomString(6);
+        }
+        // 获取应用类型作为命名前缀,拼接生成代码源文件路径
+        String codeGenType = app.getCodeGenType();
+        String sourceDirName = codeGenType + "_" + appId;
+        String sourceDirPath = appConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        // 检查源文件是否存在
+        File sourceDir = new File(sourceDirPath);
+        if (!sourceDir.exists() || !sourceDir.isDirectory()) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用代码不存在，请重新生成代码");
+        }
+        // 将源文件复制到部署目录下
+        String deployDirPath = appConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
+        try {
+            FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
+        } catch (IORuntimeException e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用部署失败" + e.getMessage());
+        }
+        // 更新 app 部署信息
+        App updateApp = new App();
+        updateApp.setId(appId);
+        updateApp.setDeployKey(deployKey);
+        updateApp.setDeployedTime(LocalDateTime.now());
+        boolean updateResult = updateById(updateApp);
+        ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
+        return String.format("%s/%s/", appConstant.CODE_DEPLOY_HOST, deployKey);
+    }
+
+    /**
+     * AI 生成应用代码准入口
+     *
+     * @param appId       应用id
+     * @param userMessage 用户提示词
+     * @param loginUser   当前登录用户
+     * @return AI 生成应用代码流
+     */
+    @Override
+    public Flux<String> chatTOGenCode(Long appId, String userMessage, User loginUser) {
+        // 校验参数
+        ThrowUtils.throwIf(appId <= 0, ErrorCode.PARAMS_ERROR, "应用Id不能为空");
+        ThrowUtils.throwIf(userMessage == null, ErrorCode.PARAMS_ERROR, "用户提示词不能为空");
+        // 生成应用是否存在
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        // 用户是否有权限（用户只能与自己生成应用的AI对话）
+        if (!loginUser.getId().equals(app.getUserId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
+        }
+        // 应用生成类型
+        String codeGenType = app.getCodeGenType();
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if (codeGenTypeEnum == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
+        }
+        // 调用AI生成代码（1.生成 2.保存）门面类
+        return aiCodeGeneratorFacade.GeneratorAndSaveStream(userMessage, codeGenTypeEnum, appId);
+    }
+
+    /**
+     * 获取应用视图对象
+     *
+     * @param app 应用
+     * @return 应用视图对象
+     */
+    @Override
+    public AppVO getAppVO(App app) {
+        // 校验
+        if (app == null) {
+            return null;
+        }
+        // 构造查询对象
+        AppVO appVO = new AppVO();
+        BeanUtil.copyProperties(app, appVO);
+        // 关联查询应用的创建用户脱敏信息
+        Long userId = app.getUserId();
+        if (userId != null) {
+            User user = userService.getById(userId);
+            UserVO userVO = userService.getUserVO(user);
+            appVO.setUser(userVO);
+        }
+        return appVO;
+    }
+
+    /**
+     * 获取查询条件
+     *
+     * @param appQueryRequest 查询条件
+     * @return 查询条件
+     */
+    @Override
+    public QueryWrapper getQueryWrapper(AppQueryRequest appQueryRequest) {
+        // 校验参数
+        if (appQueryRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+        }
+        // 获取查询条件
+        Long id = appQueryRequest.getId();
+        String appName = appQueryRequest.getAppName();
+        String cover = appQueryRequest.getCover();
+        String initPrompt = appQueryRequest.getInitPrompt();
+        String codeGenType = appQueryRequest.getCodeGenType();
+        String deployKey = appQueryRequest.getDeployKey();
+        Integer priority = appQueryRequest.getPriority();
+        Long userId = appQueryRequest.getUserId();
+        String sortField = appQueryRequest.getSortField();
+        String sortOrder = appQueryRequest.getSortOrder();
+        // 创建查询条件并返回
+        return QueryWrapper.create().eq("id", id).eq("appName", appName).eq("cover", cover).eq("initPrompt", initPrompt).eq("codeGenType", codeGenType).eq("deployKey", deployKey).eq("priority", priority).eq("userId", userId).orderBy(sortField, "ascend".equals(sortOrder));
+    }
+
+    /**
+     * 获取应用视图对象列表
+     *
+     * @param appList 应用列表
+     * @return 应用视图对象列表
+     */
+    @Override
+    public List<AppVO> getAppVOList(List<App> appList) {
+        // 校验参数
+        if (CollUtil.isEmpty(appList)) {
+            return new ArrayList<>();
+        }
+        /// AppVO 中包含 UserVO 需要对 app内的 user 进行脱敏
+        // 从appList中获取所有的userId，因为多个app可能由同一个user创建，使用set存储userId过滤相同信息
+        Set<Long> userIdSet = appList.stream()
+                .map(App::getUserId)
+                .collect(Collectors.toSet());
+        // 获取userList
+        List<User> userList = userService.listByIds(userIdSet);
+        // 获取Map<userId, userVO>
+        Map<Long, UserVO> userVOMap = userList.stream()
+                .collect(Collectors.toMap(User::getId, user -> userService.getUserVO(user)));
+        // 获取AppVOList 补充AppVO中的userVO
+        return appList.stream().map(app -> {
+            // App 转 AppVO
+            AppVO appVO = getAppVO(app);
+            // 从 map 中获取 UserVO
+            UserVO userVO = userVOMap.get(app.getUserId());
+            // 补充
+            appVO.setUser(userVO);
+            return appVO;
+        }).toList();
+    }
+}

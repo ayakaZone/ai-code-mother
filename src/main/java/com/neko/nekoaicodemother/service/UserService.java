@@ -2,10 +2,10 @@ package com.neko.nekoaicodemother.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-import com.neko.nekoaicodemother.model.dto.UserQueryRequest;
+import com.neko.nekoaicodemother.model.dto.user.UserQueryRequest;
 import com.neko.nekoaicodemother.model.entity.User;
-import com.neko.nekoaicodemother.model.vo.LoginUserVO;
-import com.neko.nekoaicodemother.model.vo.UserVO;
+import com.neko.nekoaicodemother.model.vo.user.LoginUserVO;
+import com.neko.nekoaicodemother.model.vo.user.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;

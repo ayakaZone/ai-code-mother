@@ -1,25 +1,19 @@
-package com.neko.nekoaicodemother.model.vo;
+package com.neko.nekoaicodemother.model.dto.user;
 
 import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.time.LocalDateTime;
 
 @Data
-public class UserVO implements Serializable {
+public class UserAddRequest implements Serializable {
 
     /**
-     * 脱敏用户类
+     * 用户创建请求类（管理员权限）
      */
 
     @Serial
     private static final long serialVersionUID = 1L;
-
-    /**
-     * id
-     */
-    private Long id;
 
     /**
      * 账号
@@ -45,10 +39,5 @@ public class UserVO implements Serializable {
      * 用户角色：user/admin
      */
     private String userRole;
-
-    /**
-     * 创建时间
-     */
-    private LocalDateTime createTime;
 
 }

@@ -1,24 +1,27 @@
-package com.neko.nekoaicodemother.model.dto;
+package com.neko.nekoaicodemother.model.dto.user;
 
+import com.neko.nekoaicodemother.common.PageRequest;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
 import java.io.Serializable;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
-public class UserAddRequest implements Serializable {
+public class UserQueryRequest extends PageRequest implements Serializable {
 
     /**
-     * 用户创建请求类（管理员权限）
+     * 用户更新请求类（管理员权限）
      */
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     /**
-     * 账号
+     * id
      */
-    private String userAccount;
+    private Long id;
 
     /**
      * 用户昵称
@@ -26,9 +29,9 @@ public class UserAddRequest implements Serializable {
     private String userName;
 
     /**
-     * 用户头像
+     * 账号
      */
-    private String userAvatar;
+    private String userAccount;
 
     /**
      * 用户简介
@@ -39,5 +42,4 @@ public class UserAddRequest implements Serializable {
      * 用户角色：user/admin
      */
     private String userRole;
-
 }

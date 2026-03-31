@@ -10,9 +10,9 @@ import com.neko.nekoaicodemother.constant.UserConstant;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.exception.ThrowUtils;
-import com.neko.nekoaicodemother.model.dto.*;
-import com.neko.nekoaicodemother.model.vo.LoginUserVO;
-import com.neko.nekoaicodemother.model.vo.UserVO;
+import com.neko.nekoaicodemother.model.dto.user.*;
+import com.neko.nekoaicodemother.model.vo.user.LoginUserVO;
+import com.neko.nekoaicodemother.model.vo.user.UserVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -81,7 +81,7 @@ public class UserController {
      * @return 脱敏登录用户信息
      */
     @GetMapping("/get/login")
-    @Operation(summary = "获取当前登录用户")
+    @Operation(summary = "用户获取当前登录用户")
     public BaseResponse<LoginUserVO> getLoginUser(HttpServletRequest request) {
         ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
@@ -109,7 +109,7 @@ public class UserController {
      */
     @PostMapping("/add")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    @Operation(summary = "创建用户")
+    @Operation(summary = "管理员创建用户")
     public BaseResponse<Long> add(@RequestBody UserAddRequest userAddRequest) {
         // 校验参数
         ThrowUtils.throwIf(userAddRequest == null, ErrorCode.PARAMS_ERROR);
@@ -134,7 +134,7 @@ public class UserController {
      */
     @PostMapping("/get")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    @Operation(summary = "根据Id获取用户")
+    @Operation(summary = "管理员根据Id获取用户")
     public BaseResponse<User> getUserById(long id) {
         // 校验参数
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
@@ -151,7 +151,7 @@ public class UserController {
      * @return 脱敏用户信息
      */
     @PostMapping("/get/vo")
-    @Operation(summary = "根据Id获取脱敏用户")
+    @Operation(summary = "用户根据Id获取脱敏用户")
     public BaseResponse<UserVO> getUserVOById(long id) {
         // 校验参数
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
@@ -168,7 +168,7 @@ public class UserController {
      */
     @PostMapping("/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    @Operation(summary = "删除用户")
+    @Operation(summary = "管理员删除用户")
     public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest) {
         // 校验参数
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
@@ -186,7 +186,7 @@ public class UserController {
      */
     @PostMapping("/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    @Operation(summary = "更新用户")
+    @Operation(summary = "管理员更新用户")
     public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest) {
         // 校验参数
         if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
@@ -206,7 +206,7 @@ public class UserController {
      */
     @PostMapping("/list/page/vo")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    @Operation(summary = "获取脱敏用户列表")
+    @Operation(summary = "管理员获取脱敏用户列表")
     public BaseResponse<Page<UserVO>> listUserVOByPage(@RequestBody UserQueryRequest userQueryRequest) {
         // 校验参数
         ThrowUtils.throwIf(userQueryRequest == null, ErrorCode.PARAMS_ERROR);
