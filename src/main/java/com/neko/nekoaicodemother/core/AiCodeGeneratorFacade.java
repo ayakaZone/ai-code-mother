@@ -1,6 +1,7 @@
 package com.neko.nekoaicodemother.core;
 
 import com.neko.nekoaicodemother.ai.AiCodeGeneratorService;
+import com.neko.nekoaicodemother.ai.AiCodeGeneratorServiceFactory;
 import com.neko.nekoaicodemother.ai.model.HtmlCodeResult;
 import com.neko.nekoaicodemother.ai.model.MultiFileCodeResult;
 import com.neko.nekoaicodemother.exception.BusinessException;
@@ -23,7 +24,7 @@ import java.io.File;
 public class AiCodeGeneratorFacade {
 
     @Resource
-    private AiCodeGeneratorService aiCodeGeneratorService;
+    private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
     /**
      * AI 代码生成保存文件门面类
@@ -36,6 +37,8 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "代码生成类型错误");
         }
+        // 通过 appId 在 AiService 工厂中获取 AiService
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 HtmlCodeResult htmlCodeResult = aiCodeGeneratorService.generateHtmlCode(userMessage);
@@ -64,6 +67,8 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "代码生成类型错误");
         }
+        // 通过 appId 在 AiService 工厂中获取 AiService
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 Flux<String> result = aiCodeGeneratorService.generatorHtmlCodeStream(userMessage);

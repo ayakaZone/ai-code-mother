@@ -26,9 +26,9 @@ public class MultiFileCodeFileSaverTemplate extends CodeFileSaverTemplate<MultiF
         // 保存HTML文件
         writeToFile(baseDirPath, "index.html", result.getHtmlCode());
         // 保存CSS文件
-        writeToFile(baseDirPath, "index.css", result.getCssCode());
+        writeToFile(baseDirPath, "style.css", result.getCssCode());
         // 保存JS文件
-        writeToFile(baseDirPath, "index.js", result.getJsCode());
+        writeToFile(baseDirPath, "script.js", result.getJsCode());
     }
 
     /**

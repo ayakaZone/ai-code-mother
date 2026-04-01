@@ -45,8 +45,8 @@ public class CodeFilesSaver {
         String baseDirPath = builderUnionDir(CodeGenTypeEnum.MULTI_FILE.getValue());
         // 保存文件
         writeToFile(baseDirPath, "index.html", multiFileCodeResult.getHtmlCode());
-        writeToFile(baseDirPath, "index.css", multiFileCodeResult.getCssCode());
-        writeToFile(baseDirPath, "index.js", multiFileCodeResult.getJsCode());
+        writeToFile(baseDirPath, "style.css", multiFileCodeResult.getCssCode());
+        writeToFile(baseDirPath, "script.js", multiFileCodeResult.getJsCode());
         // 返回文件
         return new File(baseDirPath);
     }

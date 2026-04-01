@@ -17,16 +17,20 @@ import com.neko.nekoaicodemother.mapper.AppMapper;
 import com.neko.nekoaicodemother.model.dto.app.AppQueryRequest;
 import com.neko.nekoaicodemother.model.entity.App;
 import com.neko.nekoaicodemother.model.entity.User;
+import com.neko.nekoaicodemother.model.enums.ChatHistoryMessageTypeEnum;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
 import com.neko.nekoaicodemother.model.vo.app.AppVO;
 import com.neko.nekoaicodemother.model.vo.user.UserVO;
 import com.neko.nekoaicodemother.service.AppService;
+import com.neko.nekoaicodemother.service.ChatHistoryService;
 import com.neko.nekoaicodemother.service.UserService;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +44,7 @@ import java.util.stream.Collectors;
  * @author mosoNeko
  */
 @Service
+@Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
     @Resource
@@ -48,9 +53,13 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
 
+    @Resource
+    private ChatHistoryService chatHistoryService;
+
     /**
      * 部署应用
-     * @param appId 应用id
+     *
+     * @param appId     应用id
      * @param loginUser 当前登录用户
      * @return 访问地址
      */
@@ -124,8 +133,30 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
         }
+        // 保存用户对话消息到对话历史中
+        boolean saveResult = chatHistoryService.addChatHistory
+                (appId, userMessage, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+        ThrowUtils.throwIf(!saveResult, ErrorCode.OPERATION_ERROR, "保存用户对话消息失败");
         // 调用AI生成代码（1.生成 2.保存）门面类
-        return aiCodeGeneratorFacade.GeneratorAndSaveStream(userMessage, codeGenTypeEnum, appId);
+        Flux<String> contentFlux = aiCodeGeneratorFacade.GeneratorAndSaveStream(userMessage, codeGenTypeEnum, appId);
+        // 收集 AI 的流式消息保存到对话历史中
+        StringBuilder aiResponseBuilder = new StringBuilder();
+        return contentFlux.map(chunk -> {
+            // 收集并拼接流
+            aiResponseBuilder.append(chunk);
+            return chunk;
+        }).doOnComplete(() -> {
+            // 流输出完成后，保存对话历史
+            String aiResponse = aiResponseBuilder.toString();
+            if (StrUtil.isNotBlank(aiResponse)) {
+                chatHistoryService.addChatHistory
+                        (appId, aiResponseBuilder.toString(), ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+            }
+        }).doOnError(error -> {
+            // ai输出发生错误也要保存错误信息到对话历史
+            String errorMessage = "AI 回复失败：" + error.getMessage();
+            chatHistoryService.addChatHistory(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+        });
     }
 
     /**
@@ -194,14 +225,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
         /// AppVO 中包含 UserVO 需要对 app内的 user 进行脱敏
         // 从appList中获取所有的userId，因为多个app可能由同一个user创建，使用set存储userId过滤相同信息
-        Set<Long> userIdSet = appList.stream()
-                .map(App::getUserId)
-                .collect(Collectors.toSet());
+        Set<Long> userIdSet = appList.stream().map(App::getUserId).collect(Collectors.toSet());
         // 获取userList
         List<User> userList = userService.listByIds(userIdSet);
         // 获取Map<userId, userVO>
-        Map<Long, UserVO> userVOMap = userList.stream()
-                .collect(Collectors.toMap(User::getId, user -> userService.getUserVO(user)));
+        Map<Long, UserVO> userVOMap = userList.stream().collect(Collectors.toMap(User::getId, user -> userService.getUserVO(user)));
         // 获取AppVOList 补充AppVO中的userVO
         return appList.stream().map(app -> {
             // App 转 AppVO
@@ -212,5 +240,33 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             appVO.setUser(userVO);
             return appVO;
         }).toList();
+    }
+
+    /**
+     * 删除应用并删除关联应用的对话历史
+     *
+     * @param id 应用Id
+     * @return 是否删除成功
+     */
+    @Override
+    public boolean removeById(Serializable id) {
+        // 校验参数
+        if (id == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+        }
+        long appId = Long.parseLong(id.toString());
+        // 判断应用是否存在
+        App app = getById(appId);
+        if (app == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        }
+        // 删除应用关联的对话历史
+        try {
+            boolean deleteResult = chatHistoryService.deleteChatHistory(appId);
+        } catch (Exception e) {
+            log.error("删除对话历史失败：{}", e.getMessage());
+        }
+        // 删除应用
+        return super.removeById(id);
     }
 }

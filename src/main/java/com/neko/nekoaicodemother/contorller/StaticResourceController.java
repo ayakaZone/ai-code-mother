@@ -1,6 +1,8 @@
 package com.neko.nekoaicodemother.contorller;
 
 import com.neko.nekoaicodemother.constant.appConstant;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -17,6 +19,7 @@ import java.io.File;
 
 @RestController
 @RequestMapping("/static")
+@Tag(name = "静态资源访问接口")
 public class StaticResourceController {
 
     // 应用生成根目录（用于浏览）
@@ -28,6 +31,7 @@ public class StaticResourceController {
      * 访问格式：http://localhost:8123/api/static/{deployKey}[/{fileName}]
      */
     @GetMapping("/{deployKey}/**")
+    @Operation(summary = "静态资源访问(预览页面)")
     public ResponseEntity<Resource> serveStaticResource(
             @PathVariable String deployKey,
             HttpServletRequest request) {

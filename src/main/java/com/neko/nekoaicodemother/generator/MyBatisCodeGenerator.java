@@ -11,7 +11,7 @@ import java.util.Map;
 public class MyBatisCodeGenerator {
 
     // 生成哪些表
-    private static final String[] TABLE_NAMES = {"app"};
+    private static final String[] TABLE_NAMES = {"chat_history"};
 
     /**
      * Mybatis Flex 代码生成器
