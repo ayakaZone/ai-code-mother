@@ -2,7 +2,10 @@ package com.neko.nekoaicodemother.ai;
 
 import com.neko.nekoaicodemother.ai.model.HtmlCodeResult;
 import com.neko.nekoaicodemother.ai.model.MultiFileCodeResult;
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.UserMessage;
 import reactor.core.publisher.Flux;
 
 /**
@@ -41,4 +44,13 @@ public interface AiCodeGeneratorService {
      */
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     Flux<String> generatorMultiFileCodeStream(String userMessage);
+
+    /**
+     * 生成 Vue 项目代码流
+     * @param appId 应用 ID
+     * @param userMessage 用户消息
+     * @return Vue 项目代码流
+     */
+    @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
+    TokenStream generatorVueProjectCodeStream(@MemoryId Long appId, @UserMessage String userMessage);
 }

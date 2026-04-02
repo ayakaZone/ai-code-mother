@@ -9,7 +9,7 @@ import com.neko.nekoaicodemother.common.BaseResponse;
 import com.neko.nekoaicodemother.common.DeleteRequest;
 import com.neko.nekoaicodemother.common.ResultUtils;
 import com.neko.nekoaicodemother.constant.UserConstant;
-import com.neko.nekoaicodemother.constant.appConstant;
+import com.neko.nekoaicodemother.constant.AppConstant;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.exception.ThrowUtils;
@@ -132,8 +132,8 @@ public class AppController {
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
         // 创建者
         app.setUserId(loginUser.getId());
-        // 文件生成类型 规定：默认生成多文件类型 Multi_File
-        app.setCodeGenType(CodeGenTypeEnum.MULTI_FILE.getValue());
+        // 文件生成类型 规定：默认生成多文件类型 VUE_PROJECT
+        app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
         // 插入数据库
         boolean saveResult = appService.save(app);
         ThrowUtils.throwIf(!saveResult, ErrorCode.OPERATION_ERROR);
@@ -271,7 +271,7 @@ public class AppController {
         ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR);
         long pageNum = appQueryRequest.getPageNum();
         // 限制查询精选应用
-        appQueryRequest.setPriority(appConstant.GOOD_APP_PRIORITY);
+        appQueryRequest.setPriority(AppConstant.GOOD_APP_PRIORITY);
         // 分页查询
         QueryWrapper queryWrapper = appService.getQueryWrapper(appQueryRequest);
         Page<App> appPage = appService.page(Page.of(pageNum, pageSize), queryWrapper);

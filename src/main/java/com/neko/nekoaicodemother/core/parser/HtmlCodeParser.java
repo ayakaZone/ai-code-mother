@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.parser;
+package com.neko.nekoaicodemother.core.parser;
 
 import com.neko.nekoaicodemother.ai.model.HtmlCodeResult;
 

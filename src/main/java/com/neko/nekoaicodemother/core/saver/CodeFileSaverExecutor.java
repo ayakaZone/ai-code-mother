@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.saver;
+package com.neko.nekoaicodemother.core.saver;
 
 import com.neko.nekoaicodemother.ai.model.HtmlCodeResult;
 import com.neko.nekoaicodemother.ai.model.MultiFileCodeResult;

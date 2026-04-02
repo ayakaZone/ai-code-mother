@@ -1,14 +1,21 @@
 package com.neko.nekoaicodemother.core;
 
+import cn.hutool.json.JSONUtil;
 import com.neko.nekoaicodemother.ai.AiCodeGeneratorService;
 import com.neko.nekoaicodemother.ai.AiCodeGeneratorServiceFactory;
 import com.neko.nekoaicodemother.ai.model.HtmlCodeResult;
 import com.neko.nekoaicodemother.ai.model.MultiFileCodeResult;
+import com.neko.nekoaicodemother.ai.model.message.AiResponseMessage;
+import com.neko.nekoaicodemother.ai.model.message.ToolExecutedMessage;
+import com.neko.nekoaicodemother.ai.model.message.ToolRequestMessage;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
-import com.neko.nekoaicodemother.parser.CodeParserExecutor;
-import com.neko.nekoaicodemother.saver.CodeFileSaverExecutor;
+import com.neko.nekoaicodemother.core.parser.CodeParserExecutor;
+import com.neko.nekoaicodemother.core.saver.CodeFileSaverExecutor;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.tool.ToolExecution;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,7 +45,7 @@ public class AiCodeGeneratorFacade {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "代码生成类型错误");
         }
         // 通过 appId 在 AiService 工厂中获取 AiService
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 HtmlCodeResult htmlCodeResult = aiCodeGeneratorService.generateHtmlCode(userMessage);
@@ -68,15 +75,19 @@ public class AiCodeGeneratorFacade {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "代码生成类型错误");
         }
         // 通过 appId 在 AiService 工厂中获取 AiService
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
         return switch (codeGenTypeEnum) {
             case HTML -> {
-                Flux<String> result = aiCodeGeneratorService.generatorHtmlCodeStream(userMessage);
-                yield processCodeStream(result, CodeGenTypeEnum.HTML, appId);
+                Flux<String> codeStream = aiCodeGeneratorService.generatorHtmlCodeStream(userMessage);
+                yield processCodeStream(codeStream, CodeGenTypeEnum.HTML, appId);
             }
             case MULTI_FILE -> {
-                Flux<String> result = aiCodeGeneratorService.generatorMultiFileCodeStream(userMessage);
-                yield processCodeStream(result, CodeGenTypeEnum.MULTI_FILE, appId);
+                Flux<String> codeStream = aiCodeGeneratorService.generatorMultiFileCodeStream(userMessage);
+                yield processCodeStream(codeStream, CodeGenTypeEnum.MULTI_FILE, appId);
+            }
+            case VUE_PROJECT -> {
+                TokenStream tokenStream = aiCodeGeneratorService.generatorVueProjectCodeStream(appId, userMessage);
+                yield processTokenStream(tokenStream);
             }
             default -> {
                 String errorMessage = "不支持的生成类型：" + codeGenTypeEnum.getValue();
@@ -84,6 +95,43 @@ public class AiCodeGeneratorFacade {
             }
         };
     }
+
+    /**
+     * 将 TokenStream 流处理成 Flux 流
+     * @param tokenStream TokenStream
+     * @return Flux
+     */
+    private Flux<String> processTokenStream(TokenStream tokenStream) {
+        return Flux.create(sink -> {
+            // 处理 AI 响应的消息
+            tokenStream.onPartialResponse((String partialResponse) -> {
+                        AiResponseMessage aiResponseMessage = new AiResponseMessage(partialResponse);
+                        sink.next(JSONUtil.toJsonStr(aiResponseMessage));
+                    })
+                    // 处理 AI 工具调用请求的消息
+                    .onPartialToolExecutionRequest((index, toolExecutionRequest) -> {
+                        ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
+                        sink.next(JSONUtil.toJsonStr(toolRequestMessage));
+                    })
+                    // 处理 AI 工具调用执行结果的消息
+                    .onToolExecuted((ToolExecution toolExecution) -> {
+                        ToolExecutedMessage toolExecutedMessage = new ToolExecutedMessage(toolExecution);
+                        sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
+                    })
+                    // 通知流式响应正常完成
+                    .onCompleteResponse((ChatResponse chatResponse) -> {
+                        sink.complete();
+                    })
+                    // 通知流式响应出现异常
+                    .onError((Throwable error) -> {
+                        // 打印错误堆栈
+                        error.printStackTrace();
+                        sink.error(error);
+                    }).start();
+        });
+    }
+
+
 
     /**
      * 处理代码流并保存
@@ -105,9 +153,9 @@ public class AiCodeGeneratorFacade {
                         Object parseResult = CodeParserExecutor.ExecutorParser(completeCode, codeGenTypeEnum);
                         // 写入文件
                         File savedDir = CodeFileSaverExecutor.executeSaver(parseResult, codeGenTypeEnum, appId);
-                        log.info("HTML代码保存成功,保存路径：{}", savedDir.getAbsolutePath());
+                        log.info("代码保存成功,保存路径：{}", savedDir.getAbsolutePath());
                     } catch (Exception e) {
-                        log.error("HTML代码保存失败", e);
+                        log.error("代码保存失败", e);
                     }
                 });
     }

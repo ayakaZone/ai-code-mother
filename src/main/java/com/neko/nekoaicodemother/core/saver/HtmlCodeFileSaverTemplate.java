@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.saver;
+package com.neko.nekoaicodemother.core.saver;
 
 import cn.hutool.core.util.StrUtil;
 import com.neko.nekoaicodemother.ai.model.HtmlCodeResult;

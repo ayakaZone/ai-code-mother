@@ -1,6 +1,6 @@
 package com.neko.nekoaicodemother.contorller;
 
-import com.neko.nekoaicodemother.constant.appConstant;
+import com.neko.nekoaicodemother.constant.AppConstant;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,7 +23,7 @@ import java.io.File;
 public class StaticResourceController {
 
     // 应用生成根目录（用于浏览）
-    private static final String PREVIEW_ROOT_DIR = appConstant.CODE_OUTPUT_ROOT_DIR;
+    private static final String PREVIEW_ROOT_DIR = AppConstant.CODE_OUTPUT_ROOT_DIR;
 
 
     /**

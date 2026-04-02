@@ -18,13 +18,25 @@ class AiCodeGeneratorFacadeTest {
 
     @Test
     void generatorAndSave() {
-        File file = aiCodeGeneratorFacade.GeneratorAndSave("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.MULTI_FILE, 1L);
+        File file = aiCodeGeneratorFacade.GeneratorAndSave
+                ("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.MULTI_FILE, 1L);
         Assertions.assertNotNull(file);
     }
 
     @Test
     void generatorAndSaveStream() {
-        Flux<String> codeStream = aiCodeGeneratorFacade.GeneratorAndSaveStream("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.HTML, 1L);
+        Flux<String> codeStream = aiCodeGeneratorFacade.GeneratorAndSaveStream
+                ("生成一个个人主页页面，要求代码在20行内", CodeGenTypeEnum.HTML, 1L);
+        List<String> result = codeStream.collectList().block();
+        Assertions.assertNotNull(result);
+        String completeContent = String.join("", result);
+        Assertions.assertNotNull(completeContent);
+    }
+
+    @Test
+    void generatorVueProjectCodeStream(){
+        Flux<String> codeStream = aiCodeGeneratorFacade.GeneratorAndSaveStream
+                ("生成一个日程表网站，要求代码在100行内，要以最少的代码量生成，最简单的就行", CodeGenTypeEnum.VUE_PROJECT, 2L);
         List<String> result = codeStream.collectList().block();
         Assertions.assertNotNull(result);
         String completeContent = String.join("", result);

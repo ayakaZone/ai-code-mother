@@ -8,8 +8,10 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import com.neko.nekoaicodemother.constant.appConstant;
+import com.neko.nekoaicodemother.constant.AppConstant;
 import com.neko.nekoaicodemother.core.AiCodeGeneratorFacade;
+import com.neko.nekoaicodemother.core.builder.VueProjectBuilder;
+import com.neko.nekoaicodemother.core.handler.StreamHandlerExecutor;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.exception.ThrowUtils;
@@ -56,6 +58,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private ChatHistoryService chatHistoryService;
 
+    @Resource
+    private StreamHandlerExecutor streamHandlerExecutor;
+
+    @Resource
+    private VueProjectBuilder vueProjectBuilder;
+
     /**
      * 部署应用
      *
@@ -84,14 +92,26 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 获取应用类型作为命名前缀,拼接生成代码源文件路径
         String codeGenType = app.getCodeGenType();
         String sourceDirName = codeGenType + "_" + appId;
-        String sourceDirPath = appConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
         // 检查源文件是否存在
         File sourceDir = new File(sourceDirPath);
         if (!sourceDir.exists() || !sourceDir.isDirectory()) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用代码不存在，请重新生成代码");
         }
+        // 如果是 Vue 项目需要再打包构建一次，确保是最新状态
+        if (codeGenType.equals(CodeGenTypeEnum.VUE_PROJECT.getValue())) {
+            // Vue 需要构建
+            vueProjectBuilder.buildProjectAsync(sourceDirPath);
+            ThrowUtils.throwIf(!FileUtil.exist(sourceDirPath), ErrorCode.SYSTEM_ERROR, "Vue 项目构建失败，请检查依赖和代码");
+            // 检查是否生成 dist 目录
+            File disDir = new File(sourceDirPath, "dist");
+            ThrowUtils.throwIf(!disDir.exists(), ErrorCode.SYSTEM_ERROR, "Vue 项目构建完成，dist 目录不存在");
+            // 将 dist 目录作为部署源
+            sourceDir = disDir;
+            log.info("Vue 项目构建完成，dist 目录：{}", disDir.getAbsolutePath());
+        }
         // 将源文件复制到部署目录下
-        String deployDirPath = appConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
+        String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
         try {
             FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
         } catch (IORuntimeException e) {
@@ -104,7 +124,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         updateApp.setDeployedTime(LocalDateTime.now());
         boolean updateResult = updateById(updateApp);
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
-        return String.format("%s/%s/", appConstant.CODE_DEPLOY_HOST, deployKey);
+        return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
     }
 
     /**
@@ -139,24 +159,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         ThrowUtils.throwIf(!saveResult, ErrorCode.OPERATION_ERROR, "保存用户对话消息失败");
         // 调用AI生成代码（1.生成 2.保存）门面类
         Flux<String> contentFlux = aiCodeGeneratorFacade.GeneratorAndSaveStream(userMessage, codeGenTypeEnum, appId);
-        // 收集 AI 的流式消息保存到对话历史中
-        StringBuilder aiResponseBuilder = new StringBuilder();
-        return contentFlux.map(chunk -> {
-            // 收集并拼接流
-            aiResponseBuilder.append(chunk);
-            return chunk;
-        }).doOnComplete(() -> {
-            // 流输出完成后，保存对话历史
-            String aiResponse = aiResponseBuilder.toString();
-            if (StrUtil.isNotBlank(aiResponse)) {
-                chatHistoryService.addChatHistory
-                        (appId, aiResponseBuilder.toString(), ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-            }
-        }).doOnError(error -> {
-            // ai输出发生错误也要保存错误信息到对话历史
-            String errorMessage = "AI 回复失败：" + error.getMessage();
-            chatHistoryService.addChatHistory(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-        });
+        // 调用流处理器执行器，收集 AI 的响应内容并保存到对话历史
+        return streamHandlerExecutor.doExecutor(contentFlux, chatHistoryService, appId, loginUser, codeGenTypeEnum);
     }
 
     /**

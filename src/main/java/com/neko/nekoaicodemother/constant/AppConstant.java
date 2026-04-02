@@ -1,6 +1,6 @@
 package com.neko.nekoaicodemother.constant;
 
-public interface appConstant {
+public interface AppConstant {
 
     /**
      * 精选的app优先级

@@ -1,8 +1,8 @@
-package com.neko.nekoaicodemother.saver;
+package com.neko.nekoaicodemother.core.saver;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
-import com.neko.nekoaicodemother.constant.appConstant;
+import com.neko.nekoaicodemother.constant.AppConstant;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
  */
 public abstract class CodeFileSaverTemplate<T> {
 
-    protected static final String FILE_SAVE_ROOT_DIR = appConstant.CODE_OUTPUT_ROOT_DIR;
+    protected static final String FILE_SAVE_ROOT_DIR = AppConstant.CODE_OUTPUT_ROOT_DIR;
 
     /**
      * 保存代码模板方式
