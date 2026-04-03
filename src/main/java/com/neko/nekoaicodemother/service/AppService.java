@@ -2,6 +2,7 @@ package com.neko.nekoaicodemother.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import com.neko.nekoaicodemother.model.dto.app.AppAddRequest;
 import com.neko.nekoaicodemother.model.dto.app.AppQueryRequest;
 import com.neko.nekoaicodemother.model.entity.App;
 import com.neko.nekoaicodemother.model.entity.User;
@@ -24,6 +25,13 @@ public interface AppService extends IService<App> {
      * @return 部署结果
      */
     String deployApp(Long appId, User loginUser);
+
+    /**
+     * 异步生成应用截图并保存到数据库
+     * @param appId 应用id
+     * @param appDeployUrl 应用部署地址
+     */
+    void generateAppScreenshotAsync(Long appId, String appDeployUrl);
 
     /**
      * AI 生成应用代码准入口
@@ -56,4 +64,12 @@ public interface AppService extends IService<App> {
      * @return 脱敏后的应用列表
      */
     List<AppVO> getAppVOList(List<App> appList);
+
+    /**
+     * 创建应用
+     * @param appAddRequest 应用创建请求
+     * @param loginUser 当前登录用户
+     * @return 应用id
+     */
+    Long createApp(AppAddRequest appAddRequest, User loginUser);
 }

@@ -8,6 +8,7 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.neko.nekoaicodemother.ai.AiCodeGenTypeRoutingService;
 import com.neko.nekoaicodemother.constant.AppConstant;
 import com.neko.nekoaicodemother.core.AiCodeGeneratorFacade;
 import com.neko.nekoaicodemother.core.builder.VueProjectBuilder;
@@ -16,6 +17,7 @@ import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.exception.ThrowUtils;
 import com.neko.nekoaicodemother.mapper.AppMapper;
+import com.neko.nekoaicodemother.model.dto.app.AppAddRequest;
 import com.neko.nekoaicodemother.model.dto.app.AppQueryRequest;
 import com.neko.nekoaicodemother.model.entity.App;
 import com.neko.nekoaicodemother.model.entity.User;
@@ -25,6 +27,7 @@ import com.neko.nekoaicodemother.model.vo.app.AppVO;
 import com.neko.nekoaicodemother.model.vo.user.UserVO;
 import com.neko.nekoaicodemother.service.AppService;
 import com.neko.nekoaicodemother.service.ChatHistoryService;
+import com.neko.nekoaicodemother.service.ScreenshotService;
 import com.neko.nekoaicodemother.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +66,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
+
+    @Resource
+    private ScreenshotService screenshotService;
+
+    @Resource
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
 
     /**
      * 部署应用
@@ -124,7 +133,60 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         updateApp.setDeployedTime(LocalDateTime.now());
         boolean updateResult = updateById(updateApp);
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
-        return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // 获取应用访问地址
+        String appDeployUrl = String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // 异步上传应用截图到 COS 中
+        generateAppScreenshotAsync(appId, appDeployUrl);
+        return appDeployUrl;
+    }
+
+    /**
+     * 异步生成应用截图，并将访问地址保存到数据库
+     *
+     * @param appId        应用id
+     * @param appDeployUrl 应用访问地址
+     */
+    @Override
+    public void generateAppScreenshotAsync(Long appId, String appDeployUrl) {
+        // 使用虚拟线程异步调用
+        Thread.startVirtualThread(() -> {
+            // 上传截图
+            String screenshotCosUrl = screenshotService.generateAndUploadScreenshot(appDeployUrl);
+            // 更新数据库的应用封面
+            App updateApp = new App();
+            updateApp.setId(appId);
+            updateApp.setCover(screenshotCosUrl);
+            boolean updateResult = updateById(updateApp);
+            ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用封面失败");
+        });
+    }
+
+    /**
+     * 创建应用
+     * @param appAddRequest 应用创建请求
+     * @param loginUser 当前登录用户
+     * @return 应用id
+     */
+    @Override
+    public Long createApp(AppAddRequest appAddRequest, User loginUser) {
+        String initPrompt = appAddRequest.getInitPrompt();
+        ThrowUtils.throwIf(initPrompt == null, ErrorCode.PARAMS_ERROR, "初始化 Prompt 不能为空");
+        // 构造app对象
+        App app = new App();
+        BeanUtil.copyProperties(appAddRequest, app);
+        /// 初始化
+        // appName 规定：默认取初始化提示词前 12 位
+        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        // 创建者
+        app.setUserId(loginUser.getId());
+        // 使用 AI 智能选择生成代码类型
+        CodeGenTypeEnum codeGenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        app.setCodeGenType(codeGenTypeEnum.getValue());
+        // 插入数据库
+        boolean saveResult = this.save(app);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.OPERATION_ERROR);
+        log.info("应用创建成功，id：{}，类型：{}", app.getId(), codeGenTypeEnum.getValue());
+        return app.getId();
     }
 
     /**

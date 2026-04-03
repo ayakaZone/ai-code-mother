@@ -8,29 +8,31 @@ import com.neko.nekoaicodemother.annotation.AuthCheck;
 import com.neko.nekoaicodemother.common.BaseResponse;
 import com.neko.nekoaicodemother.common.DeleteRequest;
 import com.neko.nekoaicodemother.common.ResultUtils;
-import com.neko.nekoaicodemother.constant.UserConstant;
 import com.neko.nekoaicodemother.constant.AppConstant;
+import com.neko.nekoaicodemother.constant.UserConstant;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.exception.ThrowUtils;
 import com.neko.nekoaicodemother.model.dto.app.*;
 import com.neko.nekoaicodemother.model.entity.App;
 import com.neko.nekoaicodemother.model.entity.User;
-import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
 import com.neko.nekoaicodemother.model.enums.UserRoleEnum;
 import com.neko.nekoaicodemother.model.vo.app.AppVO;
 import com.neko.nekoaicodemother.service.AppService;
+import com.neko.nekoaicodemother.service.ProjectDownloadService;
 import com.neko.nekoaicodemother.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +53,46 @@ public class AppController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private ProjectDownloadService projectDownloadService;
+
+    /**
+     * 打包下载代码。
+     * @param appId 应用 Id
+     * @param request 请求
+     * @param response 响应
+     */
+    @GetMapping("/download/{appId}")
+    @Operation(summary = "下载代码")
+    public void downloadAppCode(@PathVariable long appId,
+                                HttpServletRequest request,
+                                HttpServletResponse response) {
+        // 校验参数
+        ThrowUtils.throwIf(appId <= 0, ErrorCode.PARAMS_ERROR, "应用Id不能为空");
+        // 查询应用是否存在
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        // 权限校验
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR, "无权下载该应用代码");
+        // 构建应用代码目录路径
+        String codeGenType = app.getCodeGenType();
+        String sourceDirName = codeGenType + "_" + appId;
+        String sourceDitPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        // 检查应用目录是否存在
+        File file = new File(sourceDitPath);
+        ThrowUtils.throwIf(!file.exists(), ErrorCode.SYSTEM_ERROR, "应用代码目录不存在");
+        // 构建下载文件名称
+        String downloadFileName = String.valueOf(appId);
+        // 打包下载代码
+        projectDownloadService.downLoadProjectAsZip(sourceDitPath, downloadFileName, response);
+    }
+
     /**
      * 应用部署。
+     *
      * @param appDeployRequest 应用部署请求
-     * @param request 请求
+     * @param request          请求
      * @return 应用部署地址
      */
     @PostMapping("/deploy")
@@ -75,9 +113,9 @@ public class AppController {
     /**
      * AI 生成应用代码。
      *
-     * @param appId       应用 Id
+     * @param appId   应用 Id
      * @param message 用户提示词
-     * @param request     请求
+     * @param request 请求
      * @return 应用代码流
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -120,24 +158,12 @@ public class AppController {
     public BaseResponse<Long> addApp(@RequestBody AppAddRequest appAddRequest, HttpServletRequest request) {
         // 参数校验
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
-        String initPrompt = appAddRequest.getInitPrompt();
-        ThrowUtils.throwIf(initPrompt == null, ErrorCode.PARAMS_ERROR, "初始化 Prompt 不能为空");
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
-        // 构造app对象
-        App app = new App();
-        BeanUtil.copyProperties(appAddRequest, app);
-        /// 初始化
-        // appName 规定：默认取初始化提示词前 12 位
-        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
-        // 创建者
-        app.setUserId(loginUser.getId());
-        // 文件生成类型 规定：默认生成多文件类型 VUE_PROJECT
-        app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
-        // 插入数据库
-        boolean saveResult = appService.save(app);
-        ThrowUtils.throwIf(!saveResult, ErrorCode.OPERATION_ERROR);
-        return ResultUtils.success(app.getId());
+        // 创建应用
+        Long appId = appService.createApp(appAddRequest, loginUser);
+        ThrowUtils.throwIf(appId <= 0, ErrorCode.SYSTEM_ERROR, "创建应用失败");
+        return ResultUtils.success(appId);
     }
 
     /**
