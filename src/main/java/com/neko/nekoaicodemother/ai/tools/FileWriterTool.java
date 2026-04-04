@@ -1,10 +1,13 @@
 package com.neko.nekoaicodemother.ai.tools;
 
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSONObject;
 import com.neko.nekoaicodemother.constant.AppConstant;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,7 +16,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
 @Slf4j
-public class FileWriterTool {
+@Component
+public class FileWriterTool extends BaseTool {
 
     /**
      * AI 写入文件工具
@@ -51,5 +55,47 @@ public class FileWriterTool {
             log.error(errorMessage, e);
             return errorMessage;
         }
+    }
+
+    /**
+     * 获取工具名称
+     *
+     * @return 工具名称
+     */
+    @Override
+    public String getToolName() {
+        return "writeFile";
+    }
+
+    /**
+     * 获取工具显示名称
+     *
+     * @return 工具显示名称
+     */
+    @Override
+    public String getDisplayName() {
+        return "写入文件";
+    }
+
+    /**
+     * 生成工具执行结果信息
+     *
+     * @param arguments 工具参数
+     * @return 工具执行结果信息
+     */
+    @Override
+    public String generateToolExecuteResponse(JSONObject arguments) {
+        // 获取文件相对路径
+        String relativePath = arguments.getStr("relativeFilePath");
+        // 获取文件内容
+        String content = arguments.getStr("content");
+        // 获取文件后缀
+        String suffix = FileUtil.getSuffix(relativePath);
+        return String.format("""
+                [工具调用] %s %s
+                ```%s
+                %s
+                ```
+                """, getDisplayName(), relativePath, suffix, content);
     }
 }

@@ -1,10 +1,11 @@
 package com.neko.nekoaicodemother.core.handler;
 
-import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.neko.nekoaicodemother.ai.model.message.*;
+import com.neko.nekoaicodemother.ai.tools.BaseTool;
+import com.neko.nekoaicodemother.ai.tools.ToolManager;
 import com.neko.nekoaicodemother.constant.AppConstant;
 import com.neko.nekoaicodemother.core.builder.VueProjectBuilder;
 import com.neko.nekoaicodemother.model.entity.User;
@@ -32,6 +33,9 @@ public class JsonMessageStreamHandler {
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
+
+    @Resource
+    private ToolManager toolManager;
 
     /**
      * 处理 JSON 响应流
@@ -94,13 +98,17 @@ public class JsonMessageStreamHandler {
             case StreamMessageTypeEnum.TOOL_REQUEST -> {
                 // JSON 转工具请求响应类
                 ToolRequestMessage toolRequestMessage = JSONUtil.toBean(chunk, ToolRequestMessage.class);
-                // 获取调用工具Id
+                // 获取调用工具Id和Name
                 String toolId = toolRequestMessage.getId();
+                String toolName = toolRequestMessage.getName();
                 // 如果工具是第一次调用
                 if (toolId != null && !seenToolIds.contains(toolId)) {
                     // 记录工具 id
                     seenToolIds.add(toolId);
-                    return "\n\n[选择工具] 写入文件\n\n";
+                    // 获取调用的工具实例
+                    BaseTool tool = toolManager.getTool(toolName);
+                    // 返回工具调用信息
+                    return tool.generateToolRequestResponse();
                 } else {
                     // 重复调用工具，不处理
                     return "";
@@ -111,20 +119,10 @@ public class JsonMessageStreamHandler {
                 ToolExecutedMessage toolExecutedMessage = JSONUtil.toBean(chunk, ToolExecutedMessage.class);
                 // 将调用工具的参数转为 JSON 对象
                 JSONObject jsonObject = JSONUtil.parseObj(toolExecutedMessage.getArguments());
-                /// 解析参数
-                // 相对文件路径
-                String relativeFilePath = jsonObject.getStr("relativeFilePath");
-                // 文件前缀（文件名）
-                String suffix = FileUtil.getSuffix(relativeFilePath);
-                // 文件内容（生成的代码）
-                String content = jsonObject.getStr("content");
-                // 构造工具调用信息的返回格式
-                String result = String.format("""
-                        [工具调用] 写入文件 %s
-                        ```%s
-                        %s
-                        ```
-                        """, relativeFilePath, suffix, content);
+                // 根据调用工具名称后去工具实例
+                BaseTool tool = toolManager.getTool(toolExecutedMessage.getName());
+                // 返回调用工具的结果
+                String result = tool.generateToolExecuteResponse(jsonObject);
                 // 输出前端和要持久化的文件
                 String output = String.format("\n\n%s\n\n", result);
                 stringBuilder.append(output);

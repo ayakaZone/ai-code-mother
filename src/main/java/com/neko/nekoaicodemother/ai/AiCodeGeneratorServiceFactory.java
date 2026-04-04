@@ -2,7 +2,7 @@ package com.neko.nekoaicodemother.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.neko.nekoaicodemother.ai.tools.FileWriterTool;
+import com.neko.nekoaicodemother.ai.tools.*;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
@@ -48,6 +48,9 @@ public class AiCodeGeneratorServiceFactory {
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
 
+    @Resource
+    private ToolManager toolManager;
+
     /**
      * 使用 Caffeine 本地缓存来缓存 AiService 避免同个用户重复创建 AiService
      */
@@ -84,8 +87,10 @@ public class AiCodeGeneratorServiceFactory {
                     .build();
             case CodeGenTypeEnum.VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
                     .streamingChatModel(openAiStreamingChatModel)
-                    .chatMemoryProvider(memoryId -> chatMemory) // 对话记忆（使用工具调用必须要用 Provider）
-                    .tools(new FileWriterTool()) // 提供的工具
+                    // 对话记忆（使用工具调用必须要用 Provider）
+                    .chatMemoryProvider(memoryId -> chatMemory)
+                    // 提供的工具
+                    .tools(toolManager.getAllTools())
                     // 防止 AI 调用不存在的工具
                     .hallucinatedToolNameStrategy(
                             toolExecutionRequest -> ToolExecutionResultMessage.from(
@@ -97,6 +102,7 @@ public class AiCodeGeneratorServiceFactory {
 
     /**
      * 获取 AiCodeGeneratorService(提供默认调用)
+     *
      * @param appId 应用 ID
      * @return AiCodeGeneratorService
      */
@@ -119,7 +125,8 @@ public class AiCodeGeneratorServiceFactory {
 
     /**
      * 构建缓存的 key
-     * @param appId 应用 ID
+     *
+     * @param appId           应用 ID
      * @param codeGenTypeEnum 代码生成类型
      * @return 缓存的 key
      */
