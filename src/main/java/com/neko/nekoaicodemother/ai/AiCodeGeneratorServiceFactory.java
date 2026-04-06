@@ -37,6 +37,12 @@ public class AiCodeGeneratorServiceFactory {
     private StreamingChatModel openAiStreamingChatModel;
 
     /**
+     * SSE流式推理模型
+     */
+    @Resource
+    private StreamingChatModel reasoningStreamingChatModel;
+
+    /**
      * 聊天记录服务
      */
     @Resource
@@ -82,11 +88,11 @@ public class AiCodeGeneratorServiceFactory {
             // 非 Vue 工程不需要提供工具调用和 Provider
             case CodeGenTypeEnum.HTML, CodeGenTypeEnum.MULTI_FILE -> AiServices.builder(AiCodeGeneratorService.class)
                     .chatModel(chatModel)
-                    .streamingChatModel(openAiStreamingChatModel)
+                    .streamingChatModel(reasoningStreamingChatModel)
                     .chatMemory(chatMemory)
                     .build();
             case CodeGenTypeEnum.VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
-                    .streamingChatModel(openAiStreamingChatModel)
+                    .streamingChatModel(reasoningStreamingChatModel)
                     // 对话记忆（使用工具调用必须要用 Provider）
                     .chatMemoryProvider(memoryId -> chatMemory)
                     // 提供的工具

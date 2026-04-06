@@ -23,7 +23,7 @@ class ImageSearchToolTest {
         assertNotNull(images);
         assertFalse(images.isEmpty());
         // 验证返回的图片资源
-        ImageResource firstImage = images.get(0);
+        ImageResource firstImage = images.getFirst();
         assertEquals(ImageCategoryEnum.CONTENT, firstImage.getCategory());
         assertNotNull(firstImage.getDescription());
         assertNotNull(firstImage.getUrl());

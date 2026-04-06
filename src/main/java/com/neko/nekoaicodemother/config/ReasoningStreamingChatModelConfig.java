@@ -27,11 +27,11 @@ public class ReasoningStreamingChatModelConfig {
     @Bean
     public StreamingChatModel reasoningStreamingChatModel() {
         // AI 普通模型
-        final String modelName = "deepseek-chat";
-        final int maxToken = 8192;
+//        final String modelName = "deepseek-chat";
+//        final int maxToken = 8192;
         // AI 推理模型(生产环境使用)
-//        final String modelName = "deepseek-reasoner";
-//        final int maxToken = 32768;
+        final String modelName = "deepseek-reasoner";
+        final int maxToken = 32768;
         return OpenAiStreamingChatModel.builder()
                 .modelName(modelName)
                 .maxTokens(maxToken)
