@@ -2,6 +2,7 @@
 package com.neko.nekoaicodemother.langgraph4j.node;
 
 import com.neko.nekoaicodemother.ai.AiCodeGenTypeRoutingService;
+import com.neko.nekoaicodemother.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.neko.nekoaicodemother.langgraph4j.state.WorkflowContext;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
 import com.neko.nekoaicodemother.utils.SpringContextUtil;
@@ -22,7 +23,8 @@ public class RouterNode {
             CodeGenTypeEnum generationType;
             try {
                 // 获取AI路由服务
-                AiCodeGenTypeRoutingService routingService = SpringContextUtil.getBean(AiCodeGenTypeRoutingService.class);
+                AiCodeGenTypeRoutingServiceFactory routingServiceFactory = SpringContextUtil.getBean(AiCodeGenTypeRoutingServiceFactory.class);
+                AiCodeGenTypeRoutingService routingService = routingServiceFactory.createAiCodeGenTypeRoutingService();
                 // 根据原始提示词进行智能路由
                 generationType = routingService.routeCodeGenType(context.getOriginalPrompt());
                 log.info("AI智能路由完成，选择类型: {} ({})", generationType.getValue(), generationType.getText());

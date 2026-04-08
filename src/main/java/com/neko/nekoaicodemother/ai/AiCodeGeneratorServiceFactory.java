@@ -2,11 +2,13 @@ package com.neko.nekoaicodemother.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.neko.nekoaicodemother.ai.guardrail.PromptSafetyInputGuardrail;
 import com.neko.nekoaicodemother.ai.tools.*;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
 import com.neko.nekoaicodemother.service.ChatHistoryService;
+import com.neko.nekoaicodemother.utils.SpringContextUtil;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -27,20 +29,8 @@ public class AiCodeGeneratorServiceFactory {
     /**
      * 聊天模型
      */
-    @Resource
+    @Resource(name = "openAiChatModel")
     private ChatModel chatModel;
-
-    /**
-     * SSE流式聊天模型
-     */
-    @Resource
-    private StreamingChatModel openAiStreamingChatModel;
-
-    /**
-     * SSE流式推理模型
-     */
-    @Resource
-    private StreamingChatModel reasoningStreamingChatModel;
 
     /**
      * 聊天记录服务
@@ -54,6 +44,9 @@ public class AiCodeGeneratorServiceFactory {
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
 
+    /**
+     * 工具管理
+     */
     @Resource
     private ToolManager toolManager;
 
@@ -79,30 +72,53 @@ public class AiCodeGeneratorServiceFactory {
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
                 .id(appId)
                 .chatMemoryStore(redisChatMemoryStore)
-                .maxMessages(20)
+                .maxMessages(50)
                 .build();
         // 初始化对话记忆库(缓存)
-        chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
+        chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 50);
         // 根据不同的代码类型创建 AIService
         return switch (codeGenTypeEnum) {
             // 非 Vue 工程不需要提供工具调用和 Provider
-            case CodeGenTypeEnum.HTML, CodeGenTypeEnum.MULTI_FILE -> AiServices.builder(AiCodeGeneratorService.class)
-                    .chatModel(chatModel)
-                    .streamingChatModel(reasoningStreamingChatModel)
-                    .chatMemory(chatMemory)
-                    .build();
-            case CodeGenTypeEnum.VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
-                    .streamingChatModel(reasoningStreamingChatModel)
-                    // 对话记忆（使用工具调用必须要用 Provider）
-                    .chatMemoryProvider(memoryId -> chatMemory)
-                    // 提供的工具
-                    .tools(toolManager.getAllTools())
-                    // 防止 AI 调用不存在的工具
-                    .hallucinatedToolNameStrategy(
-                            toolExecutionRequest -> ToolExecutionResultMessage.from(
-                                    toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()))
-                    .build();
-            default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型：" + codeGenTypeEnum.getValue());
+            case CodeGenTypeEnum.HTML, CodeGenTypeEnum.MULTI_FILE -> {
+                // 使用多例模式的 StreamingChatModel 解决并发问题
+                StreamingChatModel openAiStreamingChatModel =
+                        SpringContextUtil.getBean("streamingChatModelPrototype", StreamingChatModel.class);
+                yield AiServices.builder(AiCodeGeneratorService.class)
+                        .chatModel(chatModel)
+                        .streamingChatModel(openAiStreamingChatModel)
+                        .chatMemory(chatMemory)
+                        // 提示词护轨
+                        .inputGuardrails(new PromptSafetyInputGuardrail())
+                        // AI 输出护轨 与 AI 流式输出有冲突
+                        //  .outputGuardrails(new RetryOutputGuardrail())
+                        // 工具调用最大次数
+                        .maxSequentialToolsInvocations(20)
+                        .build();
+            }
+            case CodeGenTypeEnum.VUE_PROJECT -> {
+                // 使用多例模式的 StreamingChatModel 解决并发问题
+                StreamingChatModel reasoningStreamingChatModel =
+                        SpringContextUtil.getBean("reasoningStreamingChatModelPrototype", StreamingChatModel.class);
+                yield AiServices.builder(AiCodeGeneratorService.class)
+                        .streamingChatModel(reasoningStreamingChatModel)
+                        // 对话记忆（使用工具调用必须要用 Provider）
+                        .chatMemoryProvider(memoryId -> chatMemory)
+                        // 提供的工具
+                        .tools(toolManager.getAllTools())
+                        // 防止 AI 调用不存在的工具
+                        .hallucinatedToolNameStrategy(
+                                toolExecutionRequest -> ToolExecutionResultMessage.from(
+                                        toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()))
+                        // 提示词护轨
+                        .inputGuardrails(new PromptSafetyInputGuardrail())
+                        // AI 输出护轨 与 AI 流式输出有冲突
+                        // .outputGuardrails(new RetryOutputGuardrail())
+                        // 工具调用最大次数
+                        .maxSequentialToolsInvocations(20)
+                        .build();
+            }
+            default ->
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型：" + codeGenTypeEnum.getValue());
         };
     }
 

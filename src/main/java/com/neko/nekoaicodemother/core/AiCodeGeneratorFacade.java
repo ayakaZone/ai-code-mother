@@ -8,6 +8,8 @@ import com.neko.nekoaicodemother.ai.model.MultiFileCodeResult;
 import com.neko.nekoaicodemother.ai.model.message.AiResponseMessage;
 import com.neko.nekoaicodemother.ai.model.message.ToolExecutedMessage;
 import com.neko.nekoaicodemother.ai.model.message.ToolRequestMessage;
+import com.neko.nekoaicodemother.constant.AppConstant;
+import com.neko.nekoaicodemother.core.builder.VueProjectBuilder;
 import com.neko.nekoaicodemother.exception.BusinessException;
 import com.neko.nekoaicodemother.exception.ErrorCode;
 import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
@@ -32,6 +34,10 @@ public class AiCodeGeneratorFacade {
 
     @Resource
     private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
+
+
+    @Resource
+    private VueProjectBuilder vueProjectBuilder;
 
     /**
      * AI 代码生成保存文件门面类
@@ -87,7 +93,7 @@ public class AiCodeGeneratorFacade {
             }
             case VUE_PROJECT -> {
                 TokenStream tokenStream = aiCodeGeneratorService.generatorVueProjectCodeStream(appId, userMessage);
-                yield processTokenStream(tokenStream);
+                yield processTokenStream(tokenStream, appId);
             }
             default -> {
                 String errorMessage = "不支持的生成类型：" + codeGenTypeEnum.getValue();
@@ -101,7 +107,7 @@ public class AiCodeGeneratorFacade {
      * @param tokenStream TokenStream
      * @return Flux
      */
-    private Flux<String> processTokenStream(TokenStream tokenStream) {
+    private Flux<String> processTokenStream(TokenStream tokenStream, Long appId) {
         return Flux.create(sink -> {
             // 处理 AI 响应的消息
             tokenStream.onPartialResponse((String partialResponse) -> {
@@ -120,6 +126,9 @@ public class AiCodeGeneratorFacade {
                     })
                     // 通知流式响应正常完成
                     .onCompleteResponse((ChatResponse chatResponse) -> {
+                        // 获取构建项目路径并构建项目
+                        String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + CodeGenTypeEnum.VUE_PROJECT.getValue() + "_" + appId;
+                        vueProjectBuilder.buildVueProject(projectPath);
                         sink.complete();
                     })
                     // 通知流式响应出现异常

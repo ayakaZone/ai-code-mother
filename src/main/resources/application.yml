@@ -17,6 +17,7 @@ spring:
       port: 6379
       password: 123456
       username: default
+      database: 0
       # 自定义Key过期时间
       ttl: 3600
   # Redis 分布式 Session 配置

@@ -9,6 +9,7 @@ import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.neko.nekoaicodemother.ai.AiCodeGenTypeRoutingService;
+import com.neko.nekoaicodemother.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.neko.nekoaicodemother.constant.AppConstant;
 import com.neko.nekoaicodemother.core.AiCodeGeneratorFacade;
 import com.neko.nekoaicodemother.core.builder.VueProjectBuilder;
@@ -71,7 +72,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private ScreenshotService screenshotService;
 
     @Resource
-    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
+    private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
 
     /**
      * 部署应用
@@ -180,7 +181,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 创建者
         app.setUserId(loginUser.getId());
         // 使用 AI 智能选择生成代码类型
-        CodeGenTypeEnum codeGenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        AiCodeGenTypeRoutingService routingService = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
+        CodeGenTypeEnum codeGenTypeEnum = routingService.routeCodeGenType(initPrompt);
         app.setCodeGenType(codeGenTypeEnum.getValue());
         // 插入数据库
         boolean saveResult = this.save(app);

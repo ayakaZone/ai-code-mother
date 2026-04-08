@@ -6,18 +6,14 @@ import cn.hutool.json.JSONUtil;
 import com.neko.nekoaicodemother.ai.model.message.*;
 import com.neko.nekoaicodemother.ai.tools.BaseTool;
 import com.neko.nekoaicodemother.ai.tools.ToolManager;
-import com.neko.nekoaicodemother.constant.AppConstant;
-import com.neko.nekoaicodemother.core.builder.VueProjectBuilder;
 import com.neko.nekoaicodemother.model.entity.User;
 import com.neko.nekoaicodemother.model.enums.ChatHistoryMessageTypeEnum;
-import com.neko.nekoaicodemother.model.enums.CodeGenTypeEnum;
 import com.neko.nekoaicodemother.service.ChatHistoryService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -30,9 +26,6 @@ import java.util.Set;
 @Slf4j
 @Component
 public class JsonMessageStreamHandler {
-
-    @Resource
-    private VueProjectBuilder vueProjectBuilder;
 
     @Resource
     private ToolManager toolManager;
@@ -62,9 +55,6 @@ public class JsonMessageStreamHandler {
                     // 流式响应完成后，添加 AI 消息到对话历史
                     String aiResponse = stringBuilder.toString();
                     chatHistoryService.addChatHistory(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-                    // 获取构建项目路径并构建项目
-                    String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + CodeGenTypeEnum.VUE_PROJECT.getValue() + "_" + appId;
-                    vueProjectBuilder.buildProjectAsync(projectPath);
                 }).doOnError(error -> {
                     // 如果 AI 回复异常，记录错误消息
                     String errorMessage = "AI 回复失败：" + error.getMessage();

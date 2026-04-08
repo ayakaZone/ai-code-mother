@@ -18,6 +18,8 @@ import com.neko.nekoaicodemother.model.entity.App;
 import com.neko.nekoaicodemother.model.entity.User;
 import com.neko.nekoaicodemother.model.enums.UserRoleEnum;
 import com.neko.nekoaicodemother.model.vo.app.AppVO;
+import com.neko.nekoaicodemother.ratelimiter.annotation.RateLimit;
+import com.neko.nekoaicodemother.ratelimiter.enums.RateLimitType;
 import com.neko.nekoaicodemother.service.AppService;
 import com.neko.nekoaicodemother.service.ProjectDownloadService;
 import com.neko.nekoaicodemother.service.UserService;
@@ -26,6 +28,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
@@ -120,6 +123,7 @@ public class AppController {
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "AI 生成应用代码")
+    @RateLimit(limitType = RateLimitType.USER, rate = 2, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam long appId,
                                                        @RequestParam String message,
                                                        HttpServletRequest request) {
@@ -289,6 +293,14 @@ public class AppController {
      */
     @PostMapping("/good/list/page/vo")
     @Operation(summary = "用户获取精选应用列表（分页）")
+    // 开启 Spring Data Redis 缓存注解
+    @Cacheable(
+            value = "good_app_page", // 指定特殊配置缓存 key（5分钟过期）
+            // Redis Key 生成策略
+            key = "T(com.neko.nekoaicodemother.utils.CacheKeyUtils).generateKey(#appQueryRequest)",
+            // 缓存条件（命中缓存直接返回缓存数据，不执行方法）
+            condition = "#appQueryRequest.pageNum <= 10"
+    )
     public BaseResponse<Page<AppVO>> listGoodAppVOByPage(@RequestBody AppQueryRequest appQueryRequest) {
         // 校验参数
         ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
