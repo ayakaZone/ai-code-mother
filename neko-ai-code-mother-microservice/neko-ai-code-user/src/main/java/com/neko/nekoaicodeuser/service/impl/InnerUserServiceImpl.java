@@ -6,13 +6,13 @@ import com.neko.nekoaicodemother.model.entity.User;
 import com.neko.nekoaicodemother.model.vo.user.UserVO;
 import com.neko.nekoaicodeuser.service.UserService;
 import jakarta.annotation.Resource;
-//import org.apache.dubbo.config.annotation.DubboService;
+import org.apache.dubbo.config.annotation.DubboService;
 
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 
-//@DubboService
+@DubboService
 public class InnerUserServiceImpl implements InnerUserService {
 
     @Resource

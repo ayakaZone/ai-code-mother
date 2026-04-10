@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.contorller;
+package com.neko.nekoaicodemother.controller;
 
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;

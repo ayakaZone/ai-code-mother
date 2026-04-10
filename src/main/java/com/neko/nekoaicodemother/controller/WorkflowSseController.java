@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.contorller;
+package com.neko.nekoaicodemother.controller;
 
 import com.neko.nekoaicodemother.langgraph4j.CodeGenWorkflow;
 import com.neko.nekoaicodemother.langgraph4j.state.WorkflowContext;

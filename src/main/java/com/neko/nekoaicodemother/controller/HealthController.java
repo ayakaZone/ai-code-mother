@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.contorller;
+package com.neko.nekoaicodemother.controller;
 
 import com.neko.nekoaicodemother.common.BaseResponse;
 import com.neko.nekoaicodemother.common.ResultUtils;

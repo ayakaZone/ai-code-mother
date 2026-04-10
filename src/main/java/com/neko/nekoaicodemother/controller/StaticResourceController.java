@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.contorller;
+package com.neko.nekoaicodemother.controller;
 
 import com.neko.nekoaicodemother.constant.AppConstant;
 import io.swagger.v3.oas.annotations.Operation;

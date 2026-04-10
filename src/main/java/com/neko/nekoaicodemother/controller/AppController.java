@@ -1,4 +1,4 @@
-package com.neko.nekoaicodemother.contorller;
+package com.neko.nekoaicodemother.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
