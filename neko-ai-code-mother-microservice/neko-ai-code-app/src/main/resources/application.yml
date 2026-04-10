@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: neko-ai-code-mother
+  # mysql
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/neko_ai_code_mother
+    username: root
+    password: 1234
+  # 激活特定环境配置文件
+  profiles:
+    active: local
+  # Redis 配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 123456
+      username: default
+      database: 0
+      # 自定义Key过期时间
+      ttl: 3600
+  # Redis 分布式 Session 配置
+  session:
+    store-type: redis # 使用Redis存储Session
+    timeout: 2592000 # 30天过期
+server:
+  port: 8125
+  servlet:
+    context-path: /api
+    # Cookie 30天过期
+    cookie:
+      max-age: 2592000
+# springdoc-openapi
+springdoc:
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.neko.nekoaicodemother.contorller
+# knife4j
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn

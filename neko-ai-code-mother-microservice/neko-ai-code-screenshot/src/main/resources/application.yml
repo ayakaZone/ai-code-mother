@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: neko-ai-code-mother
+  # 激活特定环境配置文件
+  profiles:
+    active: local
+server:
+  port: 8127
+  servlet:
+    context-path: /api
